@@ -1,0 +1,41 @@
+Fork -
+  The fork() system call allows one process, the parent, to create a new process,
+  the child. This is done by making the new child process an (almost) exact duplicate
+  of the parent: the child obtains copies of the parent’s stack, data, heap,
+  and text segments. The term fork derives from the fact that we can
+  envisage the parent process as dividing to yield two copies of itself.
+
+Exit -
+  The exit(status) library function terminates a process, making all resources
+  (memory, open file descriptors, and so on) used by the process available for
+  subsequent reallocation by the kernel. The status argument is an integer that
+  determines the termination status for the process. Using the wait() system call,
+  the parent can retrieve this status.
+
+Wait - 
+  The wait(&status) system call has two purposes. First, if a child of this process
+  has not yet terminated by calling exit(), then wait() suspends execution of the
+  process until one of its children has terminated. Second, the termination status
+  of the child is returned in the status argument of wait().
+
+Execve -
+  The execve(pathname, argv, envp) system call loads a new program (pathname,
+  with argument list argv, and environment list envp) into a process’s memory.
+  The existing program text is discarded, and the stack, data, and heap segments
+  are freshly created for the new program. This operation is often referred to as
+  execing a new program.
+
+
+#include <unistd.h>
+pid_t fork(void);
+  In parent: returns process ID of child on success, or –1 on error;
+  in successfully created child: always returns 0
+
+  The key point to understanding fork() is to realize that after it has completed its
+  work, two processes exist, and, in each process, execution continues from the point
+  where fork() returns.
+  The two processes are executing the same program text, but they have separate
+  copies of the stack, data, and heap segments. The child’s stack, data, and heap segments
+  are initially exact duplicates of the corresponding parts the parent’s memory.
+  After the fork(), each process can modify the variables in its stack, data, and heap
+  segments without affecting the other process.
