@@ -1,0 +1,119 @@
+Communication and synchronization facilities, dividing them into three broad functional categories:- 
+1. Communication 
+2. Synchronization
+3. Signals
+
+Communication - 
+	These facilities are concerned with exchanging data between processes.
+Synchronization - 
+	These facilities are concerned with synchronizing the actions of processes or threads.
+Signals - 
+	Although signals are intended primarily for other purposes, they can
+	be used as a synchronization technique in certain circumstances. More rarely,
+	signals can be used as a communication technique: the signal number itself is a
+	form of information, and realtime signals can be accompanied by associated
+	data (an integer or a pointer).
+
+
+Communication Facilities - 
+
+Data Transfer facility - 
+  These facilities require two data transfers between user memory and kernel memory: 
+  one transfer from user memory to kernel memory during writing, and another transfer
+  from kernel memory to user memory during reading.
+  
+  Data-transfer facilities involve read and write operations, with transferred data
+  being consumable by just one reader process. Flow control between writer and
+  reader, as well as synchronization (so that a reader is blocked when trying to
+  read data from a facility that is currently empty) is automatically handled by the
+  kernel. This model fits well with many application designs.
+
+  1. Byte stream: The data exchanged via pipes, FIFOs, and datagram sockets is an
+     undelimited byte stream. Each read operation may read an arbitrary number of
+     bytes from the IPC facility, regardless of the size of blocks written by the writer.
+
+  2. Message: The data exchanged via System V message queues, POSIX message
+     queues, and datagram sockets takes the form of delimited messages. Each read
+     operation reads a whole message, as written by the writer process. It is not possible
+     to read part of a message, leaving the remainder on the IPC facility; nor is
+     it possible to read multiple messages in a single read operation.
+
+
+
+Sahred Memory - 
+  Shared memory allows processes to exchange information by
+  placing it in a region of memory that is shared between the processes. (The kernel
+  accomplishes this by making page-table entries in each process point to the
+  same pages of RAM. A process can make data available to other processes by 
+  placing it in the shared memory region. Because communication doesn’t require 
+  system calls or data transfer between user memory and kernel memory, shared memory
+  can provide very fast communication.
+
+  Although shared memory provides fast communication, this speed advantage
+  is offset by the need to synchronize operations on the shared memory. For
+  example, one process should not attempt to access a data structure in the
+  shared memory while another process is updating it. A semaphore is the usual
+  synchronization method used with shared memory.
+
+
+
+Synchronization - 
+  1. Semaphore 
+  2. Mutex
+  3. File locks
+  4. Conditional variable 
+
+
+Persistence - 
+  The term persistence refers to the lifetime of an IPC object. We can distinguish three types of persistence:
+  1. Process persistence: A process-persistent IPC object remains in existence only as
+     long as it is held open by at least one process. If the object is closed by all processes,
+     then all kernel resources associated with the object are freed, and any
+     unread data is destroyed. Pipes, FIFOs, and sockets are examples of IPC facilities
+     with process persistence.
+     The persistence of a FIFO’s data is not the same as the persistence of its name.
+     A FIFO has a name in the file system that persists even after all file descriptors
+     referring to the FIFO have been closed.
+
+ 2. Kernel persistence: A kernel-persistent IPC object exists until either it is explicitly
+    deleted or the system is shut down. The lifetime of the object is independent of
+    whether any process holds the object open. This means that, for example, one
+    process can create an object, write data to it, and then close it (or terminate).
+    At a later point, another process can open the object and read the data.
+    Examples of facilities with kernel persistence are System V IPC and POSIX
+    IPC.
+
+ 3. File-system persistence: An IPC object with file-system persistence retains its information
+    even when the system is rebooted. The object exists until it is explicitly
+    deleted. The only type of IPC object that demonstrates file-system persistence
+    is shared memory based on a memory-mapped file.
+
+
+
+System V IPC design issues -
+  The System V IPC facilities were designed independently of the traditional UNIX
+  I/O model, and consequently suffer a few peculiarities that make their programming
+  interfaces more complicated to use. The corresponding POSIX IPC facilities were
+  designed to address these problems. 
+
+The following points are of particular note:-
+  1. The System V IPC facilities are connectionless. These facilities provide no
+     notion of a handle (like a file descriptor) referring to an open IPC object. 
+     we’ll sometimes talk of “opening” a System V IPC object, but
+     this is really just shorthand to describe the process of obtaining a handle to
+     refer to the object. The kernel does not record the process as having “opened”
+     the object (unlike other types of IPC objects). This means that the kernel can’t
+     maintain a reference count of the number of processes that are currently using
+     an object. Consequently, it can require additional programming effort for an
+     application to be able to know when an object can safely be deleted.
+ 2. The programming interfaces for the System V IPC facilities are inconsistent
+    with the traditional UNIX I/O model (they use integer key values and IPC
+    identifiers instead of pathnames and file descriptors). The programming interfaces
+    are also overly complex.
+
+    By contrast, the kernel counts open references for POSIX IPC objects. This simplifies
+    decisions about when an object can be deleted. Furthermore, the POSIX IPC
+    facilities provide an interface that is simpler and more consistent with the traditional
+    UNIX model.
+
+
