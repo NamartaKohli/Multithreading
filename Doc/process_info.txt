@@ -25,6 +25,21 @@ Execve -
   are freshly created for the new program. This operation is often referred to as
   execing a new program.
 
+Vfork - 
+
+Two features distinguish the vfork() system call from fork() and make it more efficient:
+1. No duplication of virtual memory pages or page tables is done for the child
+   process. Instead, the child shares the parent’s memory until it either performs
+   a successful exec() or calls _exit() to terminate. 
+2. Execution of the parent process is suspended until the child has performed an
+   exec() or _exit().
+
+Like fork(), vfork() is used by the calling process to create a new child process.
+However, vfork() is expressly designed to be used in programs where the child performs
+an immediate exec() call.
+
+
+
 
 #include <unistd.h>
 pid_t fork(void);
@@ -39,3 +54,144 @@ pid_t fork(void);
   are initially exact duplicates of the corresponding parts the parent’s memory.
   After the fork(), each process can modify the variables in its stack, data, and heap
   segments without affecting the other process.
+
+  A child process created via fork() inherits a copy of its parent’s exit handler registrations.
+  When a process performs an exec(), all exit handler registrations are
+  removed. (This is necessarily so, since an exec() replaces the code of the exit handlers
+  along with the rest of the existing program code.)
+
+File Sharing Between Parent and Child- 
+
+  When a fork() is performed, the child receives duplicates of all of the parent’s file
+  descriptors. These duplicates are made in the manner of dup(), which means that
+  corresponding descriptors in the parent and the child refer to the same open file
+  description.
+
+
+
+Race Condition After Fork - 
+
+  After a fork(), it is indeterminate which process—the parent or the child—next has
+  access to the CPU. (On a multiprocessor system, they may both simultaneously
+  get access to a CPU.) Applications that implicitly or explicitly rely on a particular
+  sequence of execution in order to achieve correct results are open to failure due to
+  race conditions. Such bugs can be hard to find, as their occurrence depends on scheduling 
+  decisions that the kernel makes according to system load.
+
+
+PROCESS TERMINATION - 
+
+#include <unistd.h>
+  void _exit(int status);
+  The status argument given to _exit() defines the termination status of the process,
+  which is available to the parent of this process when it calls wait(). Although
+  defined as an int, only the bottom 8 bits of status are actually made available to the
+  parent. By convention, a termination status of 0 indicates that a process completed
+  successfully, and a nonzero status value indicates that the process terminated unsuccessfully.
+
+  Programs generally don’t call _exit() directly, but instead call the exit() library function,
+  which performs various actions before calling _exit().
+
+#include <stdlib.h>
+void exit(int status);
+  The following actions are performed by exit():
+   1. Exit handlers (functions registered with atexit() and on_exit()) are called, in reverse order of their registration.
+   2. The stdio stream buffers are flushed.
+   3. The _exit() system call is invoked, using the value supplied in status.
+
+
+
+Details of Process Termination- 
+During both normal and abnormal termination of a process, the following actions occur:
+1. Open file descriptors, directory streams, message catalog descriptors and conversion descriptors
+   are closed.
+2. As a consequence of closing file descriptors, any file locks held by this process are released.
+3. Any attached System V shared memory segments are detached, and the shm_nattch counter corresponding 
+   to each segment is decremented by one.
+4. For each System V semaphore for which a semadj value has been set by the process,
+   that semadj value is added to the semaphore value.
+5. POSIX named semaphores that are open in the calling process are closed
+   as though sem_close() were called.
+6. Any POSIX message queues that are open in the calling process are closed as
+   though mq_close() were called.
+7. Any memory locks established by this process using mlock() or mlockall() are removed.
+8. Any memory mappings established by this process using mmap() are unmapped.
+
+
+
+
+Exit Handlers - 
+
+  An exit handler is a programmer-supplied function that is registered at some
+  point during the life of the process and is then automatically called during normal
+  process termination via exit(). Exit handlers are not called if a program calls _exit()
+  directly or if the process is terminated abnormally by a signal.
+
+  int atexit(void (*func)(void));
+
+  The atexit() function adds func to a list of functions that are called when the process
+  terminates. The function func should be defined to take no arguments and return
+  no value.
+
+  It is possible to register multiple exit handlers (and even the same exit handler
+  multiple times). When the program invokes exit(), these functions are called in
+  reverse order of registration.
+
+  However, if one of the exit handlers fails to return—either because it called _exit() 
+  or because the process was terminated by a signal —then the remaining exit handlers are not
+  called. In addition, the remaining actions that would normally be performed by
+  exit() (i.e., flushing stdio buffers) are not performed.
+
+  Exit handlers registered with atexit() suffer a couple of limitations. The first is that
+  when called, an exit handler doesn’t know what status was passed to exit(). Occasionally,
+  knowing the status could be useful; for example, we may like to perform
+  different actions depending on whether the process is exiting successfully or unsuccessfully.
+  The second limitation is that we can’t specify an argument to the exit
+  handler when it is called. Such a facility could be useful to define an exit handler
+  that performs different actions depending on its argument, or to register a function
+  multiple times, each time with a different argument.
+
+  int on_exit(void (*func)(int, void *), void *arg);
+
+
+
+Wait -
+  pid_t wait(int *status);
+  
+1 If no child of the calling process has yet terminated,
+  the call blocks until one of the children terminates. If a child has already terminated
+  by the time of the call, wait() returns immediately.
+2.If status is not NULL, information about how the child terminated is returned in
+  the integer to which status points. We describe the information returned in status.
+3.The kernel adds the process CPU times and resource usage statistics
+  to running totals for all children of this parent process.
+4.As its function result, wait() returns the process ID of the child that has terminated.
+
+5.On error, wait() returns –1. One possible error is that the calling process has no
+  (previously unwaited-for) children, which is indicated by the errno value ECHILD.
+
+
+WAITPID - 
+ #include <sys/wait.h>
+ pid_t waitpid(pid_t pid, int *status, int options);
+
+ If pid is greater than 0, wait for the child whose process ID equals pid.
+ If pid equals 0, wait for any child in the same process group as the caller (parent).
+ If pid is less than –1, wait for any child whose process group identifier equals the
+ absolute value of pid.
+ If pid equals –1, wait for any child. The call wait(&status) is equivalent to the call
+waitpid(–1, &status, 0).
+
+
+
+
+The wait() system call has a number of limitations, which waitpid() was designed to address:
+
+1.If a parent process has created multiple children, it is not possible to wait() for the
+  completion of a specific child; we can only wait for the next child that terminates.
+2.If no child has yet terminated, wait() always blocks. Sometimes, it would be
+  preferable to perform a nonblocking wait so that if no child has yet terminated,
+  we obtain an immediate indication of this fact.
+3.Using wait(), we can find out only about children that have terminated. It is not
+  possible to be notified when a child is stopped by a signal (such as SIGSTOP or
+  SIGTTIN) or when a stopped child is resumed by delivery of a SIGCONT signal.
