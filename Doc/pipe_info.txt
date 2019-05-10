@@ -1,0 +1,103 @@
+PIPES/FIFO - 
+  Pipes can beused to pass data between related processes.
+  FIFOs are a variation on the pipe concept. The important difference is
+  that FIFOs can be used for communication between any processes.
+
+A pipe is a byte stream -
+  When we say that a pipe is a byte stream, we mean that there is no concept of
+  messages or message boundaries when using a pipe. The process reading from a
+  pipe can read blocks of data of any size, regardless of the size of blocks written by
+  the writing process. Furthermore, the data passes through the pipe sequentially—
+  bytes are read from a pipe in exactly the order they were written. It is not possible
+  to randomly access the data in a pipe using lseek(). If we want to implement the notion 
+  of discrete messages in a pipe, we must do this within our application. While this is feasible, 
+  it may be preferable to use  alternative IPC mechanisms, such as message queues and datagram 
+  sockets, which we discuss in later chapters.
+
+Reading from a pipe
+  Attempts to read from a pipe that is currently empty block until at least one byte
+  has been written to the pipe. If the write end of a pipe is closed, then a process
+  reading from the pipe will see end-of-file (i.e., read() returns 0) once it has read all
+  remaining data in the pipe.
+
+Pipes are unidirectional
+  Data can travel only in one direction through a pipe. One end of the pipe is used
+  for writing, and the other end is used for reading.
+
+Creating and Using Pipes
+  int pipe(int filedes[2]);
+  A successful call to pipe() returns two open file descriptors in the array filedes: one
+  for the read end of the pipe ( filedes[0]) and one for the write end ( filedes[1]).
+
+  Once written to the write end of a pipe, data is immediately
+  available to be read from the read end.
+  During a fork(), the child process inherits copies of its parent’s file descriptors
+
+  While it is possible for the parent and child to both read from and write to the
+  pipe, this is not usual. Therefore, immediately after the fork(), one process closes its
+  descriptor for the write end of the pipe, and the other closes its descriptor for the
+  read end. For example, if the parent is to send data to the child, then it would close
+  its read descriptor for the pipe, filedes[0], while the child would close its write
+  descriptor for the pipe, filedes[1],
+
+Closing unused pipe file descriptors - 
+  Closing unused pipe file descriptors is more than a matter of ensuring that a process
+  doesn’t exhaust its limited set of file descriptors—it is essential to the correct
+  use of pipes. We now consider why the unused file descriptors for both the read
+  and write ends of the pipe must be closed.
+  The process reading from the pipe closes its write descriptor for the pipe, so
+  that, when the other process completes its output and closes its write descriptor,
+  the reader sees end-of-file (once it has read any outstanding data in the pipe).
+  If the reading process doesn’t close the write end of the pipe, then, after the
+  other process closes its write descriptor, the reader won’t see end-of-file, even after
+  it has read all data from the pipe. Instead, a read() would block waiting for data,
+  because the kernel knows that there is still at least one write descriptor open for the
+  pipe. That this descriptor is held open by the reading process itself is irrelevant;
+
+  The writing process closes its read descriptor for the pipe for a different reason.
+  When a process tries to write to a pipe for which no process has an open read
+  descriptor, the kernel sends the SIGPIPE signal to the writing process. By default,
+  this signal kills a process. A process can instead arrange to catch or ignore this signal,
+  in which case the write() on the pipe fails with the error EPIPE (broken pipe). Receiving
+  the SIGPIPE signal or getting the EPIPE error is a useful indication about the status
+  of the pipe, and this is why unused read descriptors for the pipe should be closed.
+  If the writing process doesn’t close the read end of the pipe, then, even after the
+  other process closes the read end of the pipe, the writing process will still be able to
+  write to the pipe. Eventually, the writing process will fill the pipe, and a further
+  attempt to write will block indefinitely.
+
+  One final reason for closing unused file descriptors is that it is only after all file
+  descriptors in all processes that refer to a pipe are closed that the pipe is destroyed
+  and its resources released for reuse by other processes. At this point, any unread
+  data in the pipe is lost.
+
+
+FIFO -
+ 
+  Semantically, a FIFO is similar to a pipe. The principal difference is that a FIFO has
+  a name within the file system and is opened in the same way as a regular file. This
+  allows a FIFO to be used for communication between unrelated processes.
+
+  Once a FIFO has been opened, we use the same I/O system calls as are used
+  with pipes and other files (i.e., read(), write(), and close()). Just as with pipes, a FIFO
+  has a write end and a read end, and data is read from the pipe in the same order as
+  it is written. This fact gives FIFOs their name: first in, first out. FIFOs are also sometimes
+  known as named pipes.
+
+  As with pipes, when all descriptors referring to a FIFO have been closed, any
+  outstanding data is discarded.
+  We can create a FIFO from the shell using the mkfifo command:
+
+  mkfifo [ -m mode ] pathname
+
+  #include <sys/stat.h>
+  int mkfifo(const char *pathname, mode_t mode);
+
+  Generally, the only sensible
+  use of a FIFO is to have a reading process and a writing process on each end.
+  Therefore, by default, opening a FIFO for reading (the open() O_RDONLY flag) blocks
+  until another process opens the FIFO for writing (the open() O_WRONLY flag). Conversely,
+  opening the FIFO for writing blocks until another process opens the FIFO for reading.
+  In other words, opening a FIFO synchronizes the reading and writing processes. If the
+  opposite end of a FIFO is already open (perhaps because a pair of processes have
+  already opened each end of the FIFO), then open() succeeds immediately.
