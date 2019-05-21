@@ -1,0 +1,10 @@
+In this example we have created 2 process - 
+first_process.c - 
+	1. It will create  2 shared memory section one for shared data and another for shared mutex and conditional variable
+	2. it will map the both shared memory region
+	3. it will write the data on shared memory and signal to another process to read the data
+
+Second_process.c - 
+	1. this process will open the already created shared memory section.
+	2. map both shared memory to its address space
+	3. it will check the status, if data is avilable this process will read the data and signal to first process to write more data.
