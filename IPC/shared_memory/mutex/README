@@ -1,0 +1,3 @@
+In this exaple we are sharig the mutex between two unrelated process
+and trying mutual exclusion while working on shared memory
+
