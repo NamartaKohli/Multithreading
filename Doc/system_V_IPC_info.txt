@@ -1,0 +1,23 @@
+MESSAGE QUEUE - 
+  Message queues can be used to pass messages between processes. Message
+  queues are somewhat like pipes, but differ in two important respects. First,
+  message boundaries are preserved, so that readers and writers communicate in
+  units of messages, rather than via an undelimited byte stream. Second, each
+  message includes an integer type field, and it is possible to select messages by
+  type, rather than reading them in the order in which they were written.
+
+SEMAPHORES - 
+  Semaphores permit multiple processes to synchronize their actions. A semaphore
+  is a kernel-maintained integer value that is visible to all processes that have the
+  necessary permissions. A process indicates to its peers that it is performing some
+  action by making an appropriate modification to the value of the semaphore.
+
+SHARED MEMORY - 
+  Shared memory enables multiple processes to share the same region (called a
+  segment) of memory (i.e., the same page frames are mapped into the virtual
+  memory of multiple processes). Since access to user-space memory is a fast
+  operation, shared memory is one of the quickest methods of IPC: once one
+  process has updated the shared memory, the change is immediately visible to
+  other processes sharing the same segment.
+
+

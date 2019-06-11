@@ -1,0 +1,234 @@
+mount -t tmpfs none /dev/sem
+mount -t mqueue none /dev/mqueue
+
+
+Message Queue - 
+
+ POSIX message queues are reference counted. A queue that is marked for
+ deletion is removed only after it is closed by all processes that are currently
+ using it.
+
+ Each System V message has an integer type, and messages can be selected in a
+ variety of ways using msgrcv(). By contrast, POSIX messages have an associated priority,
+ and messages are always strictly queued (and thus received) in priority order.
+ POSIX message queues provide a feature that allows a process to be asynchronously
+ notified when a message is available on a queue.
+
+mqd_t mq_open(const char *name, int oflag, ...
+/* mode_t mode, struct mq_attr *attr */); // Opening a message queue
+
+int mq_close(mqd_t mqdes); //Closing a message queue
+
+int mq_unlink(const char *name); //Removing a message queue 
+
+int mq_send(mqd_t mqdes, const char *msg_ptr, size_t msg_len, unsigned int msg_prio);
+
+ssize_t mq_receive(mqd_t mqdes, char *msg_ptr, size_t msg_len, unsigned int *msg_prio);
+
+Message Queue Attributes - 
+
+--> The mq_open(), mq_getattr(), and mq_setattr() functions all permit an argument that
+is a pointer to an mq_attr structure.
+
+struct mq_attr {
+  long mq_flags; /* Message queue description flags: 0 or O_NONBLOCK [mq_getattr(), mq_setattr()] */
+  long mq_maxmsg; /* Maximum number of messages on queue [mq_open(), mq_getattr()] */
+  long mq_msgsize; /* Maximum message size (in bytes) [mq_open(), mq_getattr()] */
+  long mq_curmsgs; /* Number of messages currently in queue [mq_getattr()] */
+};
+--> The mq_maxmsg and mq_msgsize attributes are fixed when a message queue is
+    created; they can’t subsequently be changed.
+
+--> Only some of the fields are used by each of the three functions. The fields used
+    by each function are indicated in the comments accompanying the structure
+    definition above.
+
+--> Some of the fields contain information that is fixed at the time the queue is created
+    with mq_open() (mq_maxmsg and mq_msgsize); the others return information
+    about the current state of the message queue description (mq_flags) or message
+    queue (mq_curmsgs).
+
+SENDING MESSAGE - 
+
+int mq_send(mqd_t mqdes, const char *msg_ptr, size_t msg_len, unsigned int msg_prio);
+
+--> Returns 0 on success, or –1 on error
+
+--> The msg_len argument specifies the length of the message pointed to by msg_ptr.
+    This value must be less than or equal to the mq_msgsize attribute of the queue;
+    otherwise, mq_send() fails with the error EMSGSIZE. Zero-length messages are
+    permitted.
+
+-> Each message has a nonnegative integer priority, specified by the msg_prio
+   argument. Messages are ordered within the queue in descending order of priority
+   (i.e., 0 is the lowest priority). When a new message is added to the queue, it is
+   placed after any other messages of the same priority. If an application doesn’t need
+   to use message priorities, it is sufficient to always specify msg_prio as 0.
+
+--> If the message queue is already full (i.e., the mq_maxmsg limit for the queue has
+    been reached), then a further mq_send() either blocks until space becomes available
+    in the queue, or, if the O_NONBLOCK flag is in effect, fails immediately with the error
+    EAGAIN.
+
+
+RECEIVING MESSAGE - 
+
+ssize_t mq_receive(mqd_t mqdes, char *msg_ptr, size_t msg_len, unsigned int *msg_prio);
+
+--> Returns number of bytes in received message on success, or –1 on error
+
+--> The msg_len argument is used by the caller to specify the number of bytes of space
+    available in the buffer pointed to by msg_ptr.
+
+--> Regardless of the actual size of the message, msg_len (and thus the size of the
+    buffer pointed to by msg_ptr) must be greater than or equal to the mq_msgsize
+    attribute of the queue; otherwise, mq_receive() fails with the error EMSGSIZE.
+
+--> If msg_prio is not NULL, then the priority of the received message is copied into
+    the location pointed to by msg_prio.
+
+
+--> The mq_receive() function removes the oldest message with the highest priority
+    from the message queue referred to by mqdes and returns that message in the
+    buffer pointed to by msg_ptr.
+
+
+Sending and Receiving Messages with a Timeout - 
+
+
+int mq_timedsend(mqd_t mqdes, const char *msg_ptr, size_t msg_len, unsigned int msg_prio, const struct timespec *abs_timeout);
+
+--> Returns 0 on success, or –1 on error
+
+ssize_t mq_timedreceive(mqd_t mqdes, char *msg_ptr, size_t msg_len, unsigned int *msg_prio, const struct timespec *abs_timeout);
+
+--> Returns number of bytes in received message on success, or –1 on error
+
+
+Message Notification - 
+
+--> TODO
+
+
+
+
+
+Effect of fork(), exec(), and process termination on message queue descriptors - 
+During a fork(), the child process receives copies of its parent’s message queue
+descriptors, and these descriptors refer to the same open message queue descriptions.
+The child doesn’t inherit
+any of its parent’s message notification registrations.
+When a process performs an exec() or terminates, all of its open message queue
+descriptors are closed. As a consequence of closing its message queue descriptors,
+all of the process’s message notification registrations on the corresponding queues
+are deregistered.
+
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+SEMAPHORE 
+
+--> POSIX semaphores, allow processes and threads to synchronize access to shared resources.
+
+Named semaphores: 
+  This type of semaphore has a name. By calling sem_open()
+  with the same name, unrelated processes can access the same semaphore.
+
+Unnamed semaphores: 
+  This type of semaphore doesn’t have a name; instead, it resides at an agreed-upon 
+  location in memory. Unnamed semaphores can be shared between processes or between 
+  a group of threads. When shared between processes, the semaphore must reside in a 
+  region of shared memory. When shared between threads, the semaphore may reside in an 
+  area of memory shared by the threads (e.g., on the heap or in a global variable).
+
+NAMED SAEMAPHORE - 
+
+--> The sem_open() function opens or creates a semaphore, initializes the semaphore
+    if it is created by the call, and returns a handle for use in later calls.
+
+--> The sem_post(sem) and sem_wait(sem) functions respectively increment and decrement
+    a semaphore’s value.
+
+--> The sem_getvalue() function retrieves a semaphore’s current value.
+
+--> The sem_close() function removes the calling process’s association with a semaphore
+    that it previously opened.
+
+--> The sem_unlink() function removes a semaphore name and marks the semaphore
+    for deletion when all processes have closed it.
+
+Opening a Named Semaphore : -
+
+#include <fcntl.h> /* Defines O_* constants */
+#include <sys/stat.h> /* Defines mode constants */
+#include <semaphore.h>
+
+sem_t *sem_open(const char *name, int oflag, .../* mode_t mode, unsigned int value */ );
+
+--> Returns pointer to semaphore on success, or SEM_FAILED on error
+
+--> If sem_open() is being used to open an existing semaphore, the call requires
+    only two arguments. However, if O_CREAT is specified in flags, then two further arguments
+    are required: mode and value. (If the semaphore specified by name already
+    exists, then these two arguments are ignored.) 
+
+int sem_close(sem_t *sem);
+
+--> When a process opens a named semaphore, the system records the association
+    between the process and the semaphore. The sem_close() function terminates this
+    association (i.e., closes the semaphore), releases any resources that the system has
+    associated with the semaphore for this process, and decreases the count of processes
+    referencing the semaphore.
+
+--> Returns 0 on success, or –1 on error
+
+int sem_unlink(const char *name);
+
+--> The sem_unlink() function removes the semaphore identified by name and marks
+    the semaphore to be destroyed once all processes cease using it (this may mean
+   immediately, if all processes that had the semaphore open have already closed it).
+
+
+Unnamed Semaphores - 
+
+  Unnamed semaphores (also known as memory-based semaphores) are variables of type
+  sem_t that are stored in memory allocated by the application. The semaphore is
+  made available to the processes or threads that use it by placing it in an area of
+  memory that they share.
+  Operations on unnamed semaphores use the same functions (sem_wait(),
+  sem_post(), sem_getvalue(), and so on) that are used to operate on named semaphores.
+  In addition, two further functions are required:
+
+  The sem_init() function initializes a semaphore and informs the system of
+  whether the semaphore will be shared between processes or between the threads
+  of a single process.
+
+  The sem_destroy(sem) function destroys a semaphore.
+
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+SHARED MEMORY
+
+int shm_open(const char *name, int oflag, mode_t mode);
+  One of the purposes of the oflag argument is to determine whether we are opening
+  an existing shared memory object or creating and opening a new object. If oflag
+  doesn’t include O_CREAT, we are opening an existing object. If O_CREAT is specified,
+  then the object is created if it doesn’t already exist. Specifying O_EXCL in conjunction
+  with O_CREAT is a request to ensure that the caller is the creator of the object; if the
+  object already exists, an error results (EEXIST).
+  The oflag argument also indicates the kind of access that the calling process will
+  make to the shared memory object, by specifying exactly one of the values O_RDONLY
+  or O_RDWR.
+
+Removing Shared Memory Objects - 
+  int shm_unlink(const char *name);
+
+  When a shared memory object is no longer required, it should be
+  removed using shm_unlink().
+
+  The shm_unlink() function removes the shared memory object specified by name.
+  Removing a shared memory object doesn’t affect existing mappings of the object
+  (which will remain in effect until the corresponding processes call munmap() or terminate),
+  but prevents further shm_open() calls from opening the object. Once all processes
+  have unmapped the object, the object is removed, and its contents are lost.
+
